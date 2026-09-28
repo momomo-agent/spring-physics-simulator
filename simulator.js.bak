@@ -267,14 +267,8 @@ function simulate() {
   // 不自动播放，等用户点击
   isAnimating = false;
   animationFrame = 0;
-  
-  // 设置球的初始位置为 x0
   const ball = document.getElementById('ball');
-  const container = document.getElementById('animation');
-  const containerWidth = container.offsetWidth;
-  const ballWidth = ball.offsetWidth;
-  const initialPixelX = ((params.x0 + 200) / 400) * (containerWidth - ballWidth);
-  ball.style.left = Math.max(0, Math.min(containerWidth - ballWidth, initialPixelX)) + 'px';
+  ball.style.left = '0px';
 }
 
 function togglePlay() {
@@ -303,15 +297,8 @@ function resetAnimation() {
   const text = document.getElementById('play-text');
   icon.textContent = '▶️';
   text.textContent = '播放';
-  
-  // 重置到初始位置 x0
-  const params = getParams();
   const ball = document.getElementById('ball');
-  const container = document.getElementById('animation');
-  const containerWidth = container.offsetWidth;
-  const ballWidth = ball.offsetWidth;
-  const initialPixelX = ((params.x0 + 200) / 400) * (containerWidth - ballWidth);
-  ball.style.left = Math.max(0, Math.min(containerWidth - ballWidth, initialPixelX)) + 'px';
+  ball.style.left = '0px';
   
   // 重绘曲线，清除进度线
   drawChart('chart-position', 'x');

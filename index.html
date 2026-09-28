@@ -10,41 +10,91 @@
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
-      padding: 20px;
+      padding: 0;
     }
     .container {
       max-width: 1800px;
       margin: 0 auto;
       background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
       overflow: hidden;
     }
     .header {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      padding: 30px 40px;
+      padding: 20px;
     }
     h1 {
-      font-size: 32px;
+      font-size: 24px;
       font-weight: 700;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
     .subtitle {
-      font-size: 16px;
+      font-size: 13px;
       opacity: 0.9;
     }
     .main {
-      display: grid;
-      grid-template-columns: 360px 1fr;
-      gap: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .content {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex: 1;
+      order: 1;
     }
     .controls {
       background: #f8f9fa;
-      padding: 30px;
-      border-right: 1px solid #e0e0e0;
+      padding: 0;
+      border-top: 1px solid #e0e0e0;
+      order: 2;
+    }
+    .controls-toggle {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 14px;
+      width: 100%;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .controls-content {
+      padding: 20px;
+      max-height: 500px;
       overflow-y: auto;
-      max-height: calc(100vh - 180px);
+    }
+    .controls-content.collapsed {
+      display: none;
+    }
+    @media (min-width: 1024px) {
+      body { padding: 20px; }
+      .container { border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+      .header { padding: 30px 40px; }
+      h1 { font-size: 32px; margin-bottom: 8px; }
+      .subtitle { font-size: 16px; }
+      .main { flex-direction: row-reverse; }
+      .content { padding: 30px; gap: 25px; order: 1; }
+      .controls {
+        width: 360px;
+        padding: 30px;
+        border-top: none;
+        border-left: 1px solid #e0e0e0;
+        order: 2;
+        max-height: calc(100vh - 180px);
+        overflow-y: auto;
+      }
+      .controls-toggle { display: none; }
+      .controls-content {
+        padding: 0;
+        max-height: none;
+        display: block !important;
+      }
     }
     .control-group {
       margin-bottom: 25px;
@@ -120,66 +170,60 @@
       font-weight: 600;
       color: #333;
     }
-    .content {
-      padding: 30px;
-      display: flex;
-      flex-direction: column;
-      gap: 25px;
-    }
     .animation-container {
       background: #f8f9fa;
       border-radius: 12px;
-      padding: 20px;
+      padding: 15px;
       position: relative;
-      height: 200px;
+      height: 120px;
       border: 1px solid #e0e0e0;
+    }
+    @media (min-width: 768px) {
+      .animation-container { height: 160px; padding: 20px; }
+    }
+    @media (min-width: 1024px) {
+      .animation-container { height: 200px; }
     }
     .ball {
       position: absolute;
-      width: 40px;
-      height: 40px;
+      width: 30px;
+      height: 30px;
       background: linear-gradient(135deg, #667eea, #764ba2);
       border-radius: 50%;
       box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
       transition: left 0.016s linear;
-      top: 80px;
+      top: 45px;
+    }
+    @media (min-width: 768px) {
+      .ball { width: 35px; height: 35px; top: 62px; }
+    }
+    @media (min-width: 1024px) {
+      .ball { width: 40px; height: 40px; top: 80px; }
     }
     canvas {
       border: 1px solid #e0e0e0;
       border-radius: 12px;
       background: white;
       display: block;
+      width: 100%;
+      height: auto;
     }
     .chart-title {
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 600;
       color: #333;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
-    .legend {
-      display: flex;
-      gap: 15px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-      font-size: 11px;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .legend-color {
-      width: 18px;
-      height: 3px;
-      border-radius: 2px;
+    @media (min-width: 768px) {
+      .chart-title { font-size: 15px; margin-bottom: 8px; }
     }
     .button {
       background: #667eea;
       color: white;
       border: none;
-      padding: 14px 24px;
+      padding: 12px 20px;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       width: 100%;
@@ -194,6 +238,12 @@
     .button:active {
       transform: translateY(0);
     }
+    @media (min-width: 768px) {
+      .button { padding: 14px 24px; font-size: 14px; }
+    }
+    @media (max-width: 1023px) {
+      .button { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -204,7 +254,37 @@
     </div>
     
     <div class="main">
+      <div class="content">
+        <div>
+          <h2 class="chart-title">实时动画</h2>
+          <div class="animation-container" id="animation">
+            <div class="ball" id="ball"></div>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="chart-title">位置曲线 x(t)</h2>
+          <canvas id="chart-position" width="1350" height="320"></canvas>
+        </div>
+        
+        <div>
+          <h2 class="chart-title">速度曲线 v(t)</h2>
+          <canvas id="chart-velocity" width="1350" height="320"></canvas>
+        </div>
+
+        <div>
+          <h2 class="chart-title">加速度曲线 a(t)</h2>
+          <canvas id="chart-acceleration" width="1350" height="320"></canvas>
+        </div>
+      </div>
+
       <div class="controls">
+        <button class="controls-toggle" onclick="toggleControls()">
+          <span id="toggle-icon">▼</span>
+          <span>参数控制</span>
+        </button>
+        <div class="controls-content collapsed">
+          
         <div class="control-group">
           <h3>🎯 基础参数</h3>
           <div class="control-item">
@@ -218,6 +298,27 @@
           <div class="control-item">
             <label>物体质量 m <span class="value-display" id="val-mass">1.0</span></label>
             <input type="range" id="mass" min="0.1" max="5" step="0.1" value="1">
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h3>🧠 速度模型</h3>
+          <div class="control-item">
+            <label>模型类型</label>
+            <select id="velocity-model" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+              <option value="traditional">传统物理 (v = ∫a dt)</option>
+              <option value="velocity-spring">速度弹簧 (v追v_target)</option>
+              <option value="accel-spring">加速度弹簧 (a追a_target)</option>
+              <option value="direct-spring">直接弹簧 (v=spring曲线)</option>
+            </select>
+          </div>
+          <div class="control-item" id="spring-params" style="display:none;">
+            <label>弹簧响应 <span class="value-display" id="val-vspring-response">0.5</span></label>
+            <input type="range" id="vspring-response" min="0.1" max="2" step="0.05" value="0.5">
+          </div>
+          <div class="control-item" id="spring-damping" style="display:none;">
+            <label>弹簧阻尼 <span class="value-display" id="val-vspring-damping">0.8</span></label>
+            <input type="range" id="vspring-damping" min="0" max="2" step="0.05" value="0.8">
           </div>
         </div>
 
@@ -338,31 +439,7 @@
           </div>
         </div>
 
-        <button class="button" onclick="simulate()">🚀 开始模拟</button>
-        <button class="button" onclick="reset()" style="background: #ef4444; margin-top: 10px;">🔄 重置</button>
-      </div>
-
-      <div class="content">
-        <div>
-          <h2 class="chart-title">实时动画</h2>
-          <div class="animation-container" id="animation">
-            <div class="ball" id="ball"></div>
-          </div>
-        </div>
-
-        <div>
-          <h2 class="chart-title">位置曲线 x(t)</h2>
-          <canvas id="chart-position" width="1350" height="320"></canvas>
-        </div>
-        
-        <div>
-          <h2 class="chart-title">速度曲线 v(t)</h2>
-          <canvas id="chart-velocity" width="1350" height="320"></canvas>
-        </div>
-
-        <div>
-          <h2 class="chart-title">加速度曲线 a(t)</h2>
-          <canvas id="chart-acceleration" width="1350" height="320"></canvas>
+        <button class="button" onclick="reset()">🔄 重置</button>
         </div>
       </div>
     </div>

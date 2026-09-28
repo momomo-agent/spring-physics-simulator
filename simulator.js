@@ -1,5 +1,5 @@
-// Physics Engine Simulator
-// 物理引擎模拟器核心代码
+// Physics Engine Simulator - 物理引擎模拟器核心代码
+// 支持传统物理 + 三种速度弹簧模型
 
 const FPS = 120;
 const DURATION = 5;
@@ -10,14 +10,42 @@ let simulationData = null;
 let animationFrame = 0;
 let isAnimating = false;
 
-// 初始化事件监听
+// 初始化
 document.addEventListener('DOMContentLoaded', () => {
   initializeControls();
+  updateCanvasSize();
+  window.addEventListener('resize', updateCanvasSize);
   simulate();
 });
 
+function updateCanvasSize() {
+  const canvas = document.getElementById('chart-position');
+  const container = canvas.parentElement;
+  const width = Math.min(1350, container.offsetWidth - 40);
+  const height = Math.min(320, Math.floor(width * 0.24));
+  
+  ['chart-position', 'chart-velocity', 'chart-acceleration'].forEach(id => {
+    const c = document.getElementById(id);
+    c.width = width;
+    c.height = height;
+  });
+  
+  if (simulationData) {
+    drawChart('chart-position', 'x');
+    drawChart('chart-velocity', 'v');
+    drawChart('chart-acceleration', 'a');
+  }
+}
+
+function toggleControls() {
+  const content = document.querySelector('.controls-content');
+  const icon = document.getElementById('toggle-icon');
+  content.classList.toggle('collapsed');
+  icon.textContent = content.classList.contains('collapsed') ? '▼' : '▲';
+}
+
 function initializeControls() {
-  // 为所有滑块添加实时更新显示
+  // 滑块实时更新显示
   const sliders = document.querySelectorAll('input[type="range"]');
   sliders.forEach(slider => {
     slider.addEventListener('input', (e) => {
@@ -25,68 +53,89 @@ function initializeControls() {
       const display = document.getElementById(valId);
       if (display) {
         let value = parseFloat(e.target.value);
-        let suffix = '';
-        
-        if (e.target.id === 'response') suffix = 's';
-        else if (e.target.id === 'wind-period') suffix = 's';
-        
-        display.textContent = value.toFixed(2).replace(/\.?0+$/, '') + suffix;
+        display.textContent = value.toFixed(2).replace(/\.?0+$/, '');
       }
+      // 实时模拟
+      simulate();
     });
   });
 
-  // 复选框变化时自动重新模拟
+  // 复选框变化时自动模拟
   const checkboxes = document.querySelectorAll('input[type="checkbox"]');
   checkboxes.forEach(cb => {
-    cb.addEventListener('change', () => {
-      if (isAnimating) simulate();
-    });
+    cb.addEventListener('change', () => simulate());
+  });
+  
+  // 速度模型切换
+  document.getElementById('velocity-model').addEventListener('change', (e) => {
+    const showSpring = e.target.value !== 'traditional';
+    document.getElementById('spring-params').style.display = showSpring ? 'block' : 'none';
+    document.getElementById('spring-damping').style.display = showSpring ? 'block' : 'none';
+    simulate();
   });
 }
 
 function getParams() {
   return {
-    // 基础参数
     x0: parseFloat(document.getElementById('x0').value),
     v0: parseFloat(document.getElementById('v0').value),
     mass: parseFloat(document.getElementById('mass').value),
     
-    // 弹簧力
+    velocityModel: document.getElementById('velocity-model').value,
+    vspringResponse: parseFloat(document.getElementById('vspring-response').value),
+    vspringDamping: parseFloat(document.getElementById('vspring-damping').value),
+    
     enableSpring: document.getElementById('enable-spring').checked,
     k: parseFloat(document.getElementById('k').value),
     damping: parseFloat(document.getElementById('damping').value),
     
-    // 重力
     enableGravity: document.getElementById('enable-gravity').checked,
     g: parseFloat(document.getElementById('g').value),
     
-    // 风力
     enableWind: document.getElementById('enable-wind').checked,
     windForce: parseFloat(document.getElementById('wind-force').value),
     enableWindPeriodic: document.getElementById('enable-wind-periodic').checked,
     windPeriod: parseFloat(document.getElementById('wind-period').value),
     
-    // 磁力
     enableMagnetic: document.getElementById('enable-magnetic').checked,
     magneticStrength: parseFloat(document.getElementById('magnetic-strength').value),
     magneticPos: parseFloat(document.getElementById('magnetic-pos').value),
     
-    // 电场力
     enableElectric: document.getElementById('enable-electric').checked,
     electricStrength: parseFloat(document.getElementById('electric-strength').value),
     electricPos: parseFloat(document.getElementById('electric-pos').value),
     
-    // 摩擦力
     enableStaticFriction: document.getElementById('enable-static-friction').checked,
     muStatic: parseFloat(document.getElementById('mu-static').value),
     vThreshold: parseFloat(document.getElementById('v-threshold').value),
     enableKineticFriction: document.getElementById('enable-kinetic-friction').checked,
     muKinetic: parseFloat(document.getElementById('mu-kinetic').value),
     
-    // 空气阻力
     enableDrag: document.getElementById('enable-drag').checked,
     dragCoeff: parseFloat(document.getElementById('drag-coeff').value)
   };
+}
+
+// 弹簧曲线函数
+function springCurve(t, response, damping) {
+  const omega = 2 * Math.PI / response;
+  const zeta = damping;
+  
+  if (zeta < 1) {
+    // 欠阻尼
+    const omegaD = omega * Math.sqrt(1 - zeta * zeta);
+    return 1 - Math.exp(-zeta * omega * t) * (Math.cos(omegaD * t) + (zeta * omega / omegaD) * Math.sin(omegaD * t));
+  } else if (zeta === 1) {
+    // 临界阻尼
+    return 1 - Math.exp(-omega * t) * (1 + omega * t);
+  } else {
+    // 过阻尼
+    const r1 = omega * (-zeta + Math.sqrt(zeta * zeta - 1));
+    const r2 = omega * (-zeta - Math.sqrt(zeta * zeta - 1));
+    const c1 = -r2 / (r1 - r2);
+    const c2 = r1 / (r1 - r2);
+    return 1 - c1 * Math.exp(r1 * t) - c2 * Math.exp(r2 * t);
+  }
 }
 
 function simulatePhysics(params) {
@@ -95,46 +144,45 @@ function simulatePhysics(params) {
   let v = params.v0;
   const m = params.mass;
   
-  // 计算弹簧的固有频率和阻尼系数
+  // 弹簧参数
   const omega0 = Math.sqrt(params.k / m);
   const c = 2 * params.damping * omega0 * m;
+  
+  // 速度弹簧模型的状态
+  let v_smooth = v; // 平滑速度（用于速度弹簧模型）
+  let a_smooth = 0; // 平滑加速度（用于加速度弹簧模型）
+  let v_smooth_vel = 0; // 速度弹簧的速度
+  let a_smooth_vel = 0; // 加速度弹簧的速度
   
   for (let i = 0; i < FRAMES; i++) {
     const t = i * DT;
     let F_total = 0;
     
-    // 1. 弹簧力 F = -kx - cv
+    // 计算所有力
     if (params.enableSpring) {
       F_total += -params.k * x - c * v;
     }
     
-    // 2. 重力 F = mg
     if (params.enableGravity) {
       F_total += m * params.g;
     }
     
-    // 3. 风力
     if (params.enableWind) {
       if (params.enableWindPeriodic) {
-        // 周期性风力 F = F0 * sin(2πt/T)
         F_total += params.windForce * Math.sin(2 * Math.PI * t / params.windPeriod);
       } else {
-        // 恒定风力
         F_total += params.windForce;
       }
     }
     
-    // 4. 磁力 F = k/r² (距离平方反比)
     if (params.enableMagnetic) {
       const r = x - params.magneticPos;
       const rAbs = Math.abs(r);
       if (rAbs > 1) {
-        // 排斥力或吸引力（根据符号）
         F_total += -params.magneticStrength / (rAbs * rAbs) * Math.sign(r);
       }
     }
     
-    // 5. 电场力 F = k/r² (距离平方反比)
     if (params.enableElectric) {
       const r = x - params.electricPos;
       const rAbs = Math.abs(r);
@@ -143,29 +191,65 @@ function simulatePhysics(params) {
       }
     }
     
-    // 6. 静摩擦力 (速度小于阈值时生效)
     if (params.enableStaticFriction && Math.abs(v) < params.vThreshold && Math.abs(v) > 0.01) {
       F_total += -params.muStatic * Math.sign(v);
     }
     
-    // 7. 动摩擦力 (全程生效)
     if (params.enableKineticFriction && Math.abs(v) > 0.01) {
       F_total += -params.muKinetic * Math.sign(v);
     }
     
-    // 8. 空气阻力 F = -Cv²
     if (params.enableDrag && Math.abs(v) > 0.01) {
       F_total += -params.dragCoeff * v * Math.abs(v);
     }
     
-    // 计算加速度 a = F/m
-    const a = F_total / m;
+    // 计算目标加速度
+    const a_target = F_total / m;
+    let a_actual = a_target;
+    let v_actual = v;
     
-    frames.push({ t, x, v, a });
+    // 根据速度模型选择不同的积分方式
+    if (params.velocityModel === 'velocity-spring') {
+      // 方式1: 速度通过弹簧追目标速度
+      // v_target = 当前物理速度 v
+      // v_smooth 通过弹簧追 v
+      const k_v = 4 * Math.PI * Math.PI / (params.vspringResponse * params.vspringResponse);
+      const c_v = 2 * params.vspringDamping * Math.sqrt(k_v);
+      const spring_accel = k_v * (v - v_smooth) - c_v * v_smooth_vel;
+      v_smooth_vel += spring_accel * DT;
+      v_smooth += v_smooth_vel * DT;
+      v_actual = v_smooth;
+      
+    } else if (params.velocityModel === 'accel-spring') {
+      // 方式2: 加速度通过弹簧追目标加速度
+      const k_a = 4 * Math.PI * Math.PI / (params.vspringResponse * params.vspringResponse);
+      const c_a = 2 * params.vspringDamping * Math.sqrt(k_a);
+      const spring_jerk = k_a * (a_target - a_smooth) - c_a * a_smooth_vel;
+      a_smooth_vel += spring_jerk * DT;
+      a_smooth += a_smooth_vel * DT;
+      a_actual = a_smooth;
+      
+    } else if (params.velocityModel === 'direct-spring') {
+      // 方式3: 速度直接用弹簧曲线
+      // 这种方式下，速度从 v0 平滑过渡到由力驱动的速度
+      const progress = springCurve(t, params.vspringResponse, params.vspringDamping);
+      v_actual = params.v0 + (v - params.v0) * progress;
+    }
     
-    // 更新速度和位置 (Euler method)
-    v += a * DT;
-    x += v * DT;
+    frames.push({ t, x, v: v_actual, a: a_actual });
+    
+    // 更新状态
+    if (params.velocityModel === 'traditional') {
+      v += a_target * DT;
+      x += v * DT;
+    } else if (params.velocityModel === 'accel-spring') {
+      v += a_actual * DT;
+      x += v * DT;
+    } else {
+      // velocity-spring 和 direct-spring
+      v += a_target * DT; // 真实物理速度
+      x += v_actual * DT; // 用平滑后的速度更新位置
+    }
   }
   
   return frames;
@@ -191,19 +275,15 @@ function drawChart(canvasId, valueKey) {
   const graphWidth = width - 2 * padding;
   const graphHeight = height - 2 * padding;
   
-  // 清空画布
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, width, height);
   
-  // 提取数据
   const values = simulationData.map(f => f[valueKey]);
-  const times = simulationData.map(f => f.t);
-  
   const vMin = Math.min(...values);
   const vMax = Math.max(...values);
-  const range = vMax - vMin;
+  const range = vMax - vMin || 1;
   
-  // 绘制坐标轴
+  // 坐标轴
   ctx.strokeStyle = '#ddd';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -212,7 +292,7 @@ function drawChart(canvasId, valueKey) {
   ctx.lineTo(width - padding, height - padding);
   ctx.stroke();
   
-  // 绘制零线
+  // 零线
   ctx.strokeStyle = '#e5e5e5';
   ctx.setLineDash([5, 5]);
   const zeroY = padding + graphHeight - ((0 - vMin) / range) * graphHeight;
@@ -224,7 +304,7 @@ function drawChart(canvasId, valueKey) {
   }
   ctx.setLineDash([]);
   
-  // 绘制曲线
+  // 曲线
   ctx.strokeStyle = '#667eea';
   ctx.lineWidth = 2.5;
   ctx.beginPath();
@@ -239,19 +319,17 @@ function drawChart(canvasId, valueKey) {
   
   ctx.stroke();
   
-  // 绘制刻度
+  // 刻度
   ctx.fillStyle = '#666';
   ctx.font = '11px -apple-system, sans-serif';
   ctx.textAlign = 'center';
   
-  // 时间轴刻度
   for (let i = 0; i <= 5; i++) {
     const x = padding + (i / 5) * graphWidth;
     const t = (i / 5) * DURATION;
     ctx.fillText(t.toFixed(1) + 's', x, height - padding + 18);
   }
   
-  // Y轴刻度
   ctx.textAlign = 'right';
   ctx.fillText(vMax.toFixed(0), padding - 10, padding + 5);
   if (zeroY >= padding && zeroY <= height - padding) {
@@ -259,16 +337,14 @@ function drawChart(canvasId, valueKey) {
   }
   ctx.fillText(vMin.toFixed(0), padding - 10, height - padding + 5);
   
-  // Y轴标签
+  const labels = { x: '位置 x(t)', v: '速度 v(t)', a: '加速度 a(t)' };
   ctx.save();
   ctx.translate(15, height / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign = 'center';
-  const labels = { x: '位置 x(t)', v: '速度 v(t)', a: '加速度 a(t)' };
   ctx.fillText(labels[valueKey], 0, 0);
   ctx.restore();
   
-  // X轴标签
   ctx.textAlign = 'center';
   ctx.fillText('时间 (秒)', width / 2, height - 10);
 }
@@ -289,14 +365,12 @@ function animate() {
   const ball = document.getElementById('ball');
   const container = document.getElementById('animation');
   const containerWidth = container.offsetWidth;
+  const ballWidth = ball.offsetWidth;
   
-  // 映射位置到像素 (-200 ~ 200 映射到 0 ~ containerWidth)
-  const pixelX = ((frame.x + 200) / 400) * (containerWidth - 40);
-  ball.style.left = pixelX + 'px';
+  const pixelX = ((frame.x + 200) / 400) * (containerWidth - ballWidth);
+  ball.style.left = Math.max(0, Math.min(containerWidth - ballWidth, pixelX)) + 'px';
   
   animationFrame++;
-  
-  // 以实际时间速度播放 (120fps -> 实时)
   setTimeout(() => requestAnimationFrame(animate), 1000 / FPS);
 }
 
@@ -304,10 +378,12 @@ function reset() {
   isAnimating = false;
   animationFrame = 0;
   
-  // 重置所有滑块
   document.getElementById('x0').value = -150;
   document.getElementById('v0').value = 0;
   document.getElementById('mass').value = 1;
+  document.getElementById('velocity-model').value = 'traditional';
+  document.getElementById('vspring-response').value = 0.5;
+  document.getElementById('vspring-damping').value = 0.8;
   document.getElementById('k').value = 60;
   document.getElementById('damping').value = 0.74;
   document.getElementById('g').value = 9.8;
@@ -322,7 +398,6 @@ function reset() {
   document.getElementById('mu-kinetic').value = 50;
   document.getElementById('drag-coeff').value = 0.5;
   
-  // 重置复选框
   document.getElementById('enable-spring').checked = true;
   document.getElementById('enable-gravity').checked = false;
   document.getElementById('enable-wind').checked = false;
@@ -333,7 +408,9 @@ function reset() {
   document.getElementById('enable-kinetic-friction').checked = false;
   document.getElementById('enable-drag').checked = false;
   
-  // 更新显示
+  document.getElementById('spring-params').style.display = 'none';
+  document.getElementById('spring-damping').style.display = 'none';
+  
   document.querySelectorAll('input[type="range"]').forEach(slider => {
     slider.dispatchEvent(new Event('input'));
   });

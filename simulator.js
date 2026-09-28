@@ -137,21 +137,27 @@ function initializeControls() {
   document.getElementById('velocity-model').addEventListener('change', (e) => {
     const model = e.target.value;
     
-    // 速度弹簧参数（非传统物理且非有机弹簧时显示）
-    const showVSpring = model !== 'traditional' && model !== 'pid' && model !== 'viscous' && model !== 'organic';
-    const vspringResp = document.getElementById('vspring-response-item');
-    const vspringDamp = document.getElementById('vspring-damping-item');
-    if (vspringResp) vspringResp.style.display = showVSpring ? 'block' : 'none';
-    if (vspringDamp) vspringDamp.style.display = showVSpring ? 'block' : 'none';
+    // 隐藏所有速度模型参数
+    document.getElementById('vmodel-spring-params').style.display = 'none';
+    document.getElementById('vmodel-spring-damping').style.display = 'none';
+    document.getElementById('vmodel-pid-kp').style.display = 'none';
+    document.getElementById('vmodel-pid-ki').style.display = 'none';
+    document.getElementById('vmodel-pid-kd').style.display = 'none';
+    document.getElementById('vmodel-viscous-coef').style.display = 'none';
+    document.getElementById('vmodel-viscous-tau').style.display = 'none';
     
-    // 有机弹簧参数（只在 organic 模式显示）
-    const showOrganic = model === 'organic';
-    const organicK = document.getElementById('organic-k-item');
-    const organicM = document.getElementById('organic-m-item');
-    const organicBeta = document.getElementById('organic-beta-item');
-    if (organicK) organicK.style.display = showOrganic ? 'block' : 'none';
-    if (organicM) organicM.style.display = showOrganic ? 'block' : 'none';
-    if (organicBeta) organicBeta.style.display = showOrganic ? 'block' : 'none';
+    // 根据模型显示对应参数
+    if (model === 'velocity-spring' || model === 'accel-spring' || model === 'direct-spring') {
+      document.getElementById('vmodel-spring-params').style.display = 'block';
+      document.getElementById('vmodel-spring-damping').style.display = 'block';
+    } else if (model === 'robot') {
+      document.getElementById('vmodel-pid-kp').style.display = 'block';
+      document.getElementById('vmodel-pid-ki').style.display = 'block';
+      document.getElementById('vmodel-pid-kd').style.display = 'block';
+    } else if (model === 'viscous') {
+      document.getElementById('vmodel-viscous-coef').style.display = 'block';
+      document.getElementById('vmodel-viscous-tau').style.display = 'block';
+    }
     
     simulate();
   });
@@ -195,9 +201,18 @@ function getParams() {
     vspringResponse: parseFloat(document.getElementById('vspring-response').value),
     vspringDamping: parseFloat(document.getElementById('vspring-damping').value),
     
+    // PID 参数
+    pidKp: parseFloat(document.getElementById('pid-kp').value),
+    pidKi: parseFloat(document.getElementById('pid-ki').value),
+    pidKd: parseFloat(document.getElementById('pid-kd').value),
+    
+    // 粘性流体参数
+    viscousCoef: parseFloat(document.getElementById('viscous-coef').value),
+    viscousTau: parseFloat(document.getElementById('viscous-tau').value),
+    
     enableSpring: document.getElementById('enable-spring').checked,
-    k: parseFloat(document.getElementById('k').value),
-    damping: parseFloat(document.getElementById('damping').value),
+    springResponse: parseFloat(document.getElementById('response').value),
+    springDampingRatio: parseFloat(document.getElementById('damping-ratio').value),
     
     enableGravity: document.getElementById('enable-gravity').checked,
     g: parseFloat(document.getElementById('g').value),
@@ -254,9 +269,10 @@ function simulatePhysics(params) {
   let v = params.v0;
   const m = params.mass;
   
-  // 弹簧参数
-  const omega0 = Math.sqrt(params.k / m);
-  const c = 2 * params.damping * omega0 * m;
+  // 弹簧参数（从 response 和 dampingRatio 计算 k 和 c）
+  const omega0_spring = 2 * Math.PI / params.springResponse;
+  const k_spring = m * omega0_spring * omega0_spring;
+  const c_spring = 2 * params.springDampingRatio * Math.sqrt(k_spring * m);
   
   // 速度弹簧模型的状态
   let v_smooth = v; // 平滑速度（用于速度弹簧模型）
@@ -271,7 +287,7 @@ function simulatePhysics(params) {
     
     // 计算所有力
     if (params.enableSpring) {
-      F_total += -params.k * x - c * v;
+      F_total += -k_spring * x - c_spring * v;
     }
     
     if (params.enableGravity) {
@@ -345,13 +361,15 @@ function simulatePhysics(params) {
       // 这种方式下，速度从 v0 平滑过渡到由力驱动的速度
       const progress = springCurve(t, params.vspringResponse, params.vspringDamping);
       v_actual = params.v0 + (v - params.v0) * progress;
-    } else if (params.velocityModel === 'pid') {
+    } else if (params.velocityModel === 'robot') {
       const e = params.x0 - x;
       pid_integral += e * DT;
-      v_actual = 2*e + 0.5*pid_integral + 1*(e-pid_prev_error)/DT;
+      const de = (e - pid_prev_error) / DT;
+      v_actual = params.pidKp * e + params.pidKi * pid_integral + params.pidKd * de;
       pid_prev_error = e;
     } else if (params.velocityModel === 'viscous') {
-      v_viscous += (F_total/20 - v_viscous) * (1-Math.exp(-DT/0.1));
+      const target_v = F_total / params.viscousCoef;
+      v_viscous += (target_v - v_viscous) * (1 - Math.exp(-DT / params.viscousTau));
       v_actual = v_viscous;
     }
     
@@ -364,7 +382,7 @@ function simulatePhysics(params) {
     } else if (params.velocityModel === 'accel-spring') {
       v += a_actual * DT;
       x += v * DT;
-    } else if (params.velocityModel === "pid" || params.velocityModel === "viscous") {
+    } else if (params.velocityModel === "robot" || params.velocityModel === "viscous") {
       x += v_actual * DT;
     } else {
       v += a_target * DT;

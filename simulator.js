@@ -272,6 +272,36 @@ function springCurve(t, response, damping) {
   }
 }
 
+// 弹簧曲线的导数（速度）
+function springCurveDerivative(t, response, damping) {
+  const omega = 2 * Math.PI / response;
+  const zeta = damping;
+  
+  if (zeta < 1) {
+    // 欠阻尼
+    const omegaD = omega * Math.sqrt(1 - zeta * zeta);
+    const exp_term = Math.exp(-zeta * omega * t);
+    const cos_term = Math.cos(omegaD * t);
+    const sin_term = Math.sin(omegaD * t);
+    // d/dt[1 - exp(-ζωt)*(cos(ωₐt) + (ζω/ωₐ)*sin(ωₐt))]
+    // = exp(-ζωt) * [ζω*(cos + (ζω/ωₐ)*sin) + ωₐ*sin - ζω*sin]
+    return exp_term * omega * omega * sin_term / omegaD;
+  } else if (zeta === 1) {
+    // 临界阻尼
+    const exp_term = Math.exp(-omega * t);
+    // d/dt[1 - exp(-ωt)*(1 + ωt)] = exp(-ωt) * ω²t
+    return omega * omega * t * exp_term;
+  } else {
+    // 过阻尼
+    const r1 = omega * (-zeta + Math.sqrt(zeta * zeta - 1));
+    const r2 = omega * (-zeta - Math.sqrt(zeta * zeta - 1));
+    const c1 = -r2 / (r1 - r2);
+    const c2 = r1 / (r1 - r2);
+    // d/dt[1 - c1*exp(r1*t) - c2*exp(r2*t)] = -c1*r1*exp(r1*t) - c2*r2*exp(r2*t)
+    return -c1 * r1 * Math.exp(r1 * t) - c2 * r2 * Math.exp(r2 * t);
+  }
+}
+
 function simulatePhysics(params) {
   const frames = [];
   let x = params.x0;
@@ -372,12 +402,13 @@ function simulatePhysics(params) {
       const progress = springCurve(t, params.vspringResponse, params.vspringDamping);
       v_actual = params.v0 + (v - params.v0) * progress;
     } else if (params.velocityModel === 'robot') {
-      // 机器人 PD 控制：速度按 spring curve 从初速度平滑归零
-      // 模拟伺服电机的 motion profile
-      const response = params.pidKp * 0.01; // Kp 控制响应时间
-      const damping = params.pidKd * 0.1;   // Kd 控制阻尼
-      const progress = springCurve(t, response, damping);
-      v_actual = params.v0 * (1 - progress);
+      // 机器人 PD 控制：位置按 spring curve 从 x0 归零
+      // 速度 = dx/dt，用解析导数
+      const response = params.pidKp * 0.1;
+      const damping = params.pidKd * 0.1;
+      // x(t) = x0 * (1 - springCurve(t))
+      // v(t) = dx/dt = -x0 * d[springCurve(t)]/dt
+      v_actual = -params.x0 * springCurveDerivative(t, response, damping);
       pid_prev_error = 0 - x;
     } else if (params.velocityModel === 'viscous') {
       // 低雷诺数流体：速度按 spring curve 从初速度过渡到目标速度

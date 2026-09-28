@@ -1,0 +1,41 @@
+--- a/simulator.js
++++ b/simulator.js
+@@ -207,6 +207,10 @@ function getParams() {
+     viscousCoef: parseFloat(document.getElementById('viscous-coef').value),
+     viscousTau: parseFloat(document.getElementById('viscous-tau').value),
+     
++    // 有机弹簧参数
++    organicResponse: parseFloat(document.getElementById('organic-response').value) || 1.5,
++    organicDamping: parseFloat(document.getElementById('organic-damping').value) || 0.7,
++    
+     enableSpring: document.getElementById('enable-spring').checked,
+     springResponse: parseFloat(document.getElementById('response').value),
+     springDampingRatio: parseFloat(document.getElementById('damping-ratio').value),
+@@ -365,13 +369,18 @@ function simulatePhysics(params) {
+     } else if (params.velocityModel === 'robot') {
+       const e = 0 - x;  // 误差 = 目标位置(0) - 当前位置
+       pid_integral += e * DT;
++      // 限制积分项防止积分饱和
++      const maxIntegral = 100;
++      pid_integral = Math.max(-maxIntegral, Math.min(maxIntegral, pid_integral));
+       const de = (e - pid_prev_error) / DT;
+-      v_actual = params.pidKp * e + params.pidKi * pid_integral + params.pidKd * de;
++      const v_pid = params.pidKp * e + params.pidKi * pid_integral + params.pidKd * de;
++      // 限制速度防止发散
++      const maxVel = 500;
++      v_actual = Math.max(-maxVel, Math.min(maxVel, v_pid));
+       pid_prev_error = e;
+     } else if (params.velocityModel === 'viscous') {
+       // 低雷诺数流体：粘性力主导，阻力正比于速度
+-      // F = F_spring - b*v （线性阻尼，不是二次阻尼）
+-      // 在粘性主导下：ma ≈ 0, 所以 F_spring = b*v
+-      // v = F_spring / b
+-      const F_spring_only = params.enableSpring ? (-k_spring * x - c_spring * v) : 0;
+-      const target_v = F_spring_only / params.viscousCoef;
++      // F = -k*x - b*v （线性阻尼）
++      // 在粘性主导下：ma ≈ 0, 所以 -k*x = b*v
++      // v = -k*x / b （注意：忽略 c_spring，因为粘性阻尼已经由流体提供）
++      const target_v = params.enableSpring ? (-k_spring * x / params.viscousCoef) : 0;
+       v_viscous += (target_v - v_viscous) * (1 - Math.exp(-DT / params.viscousTau));
+       v_actual = v_viscous;
++      v = v_viscous; // 更新主速度状态

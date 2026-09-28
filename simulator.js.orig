@@ -210,6 +210,10 @@ function getParams() {
     viscousCoef: parseFloat(document.getElementById('viscous-coef').value),
     viscousTau: parseFloat(document.getElementById('viscous-tau').value),
     
+    // 有机弹簧参数
+    organicResponse: parseFloat(document.getElementById('organic-response').value) || 1.5,
+    organicDamping: parseFloat(document.getElementById('organic-damping').value) || 0.7,
+    
     enableSpring: document.getElementById('enable-spring').checked,
     springResponse: parseFloat(document.getElementById('response').value),
     springDampingRatio: parseFloat(document.getElementById('damping-ratio').value),

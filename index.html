@@ -422,17 +422,13 @@
           <input type="range" id="viscous-tau" min="0.01" max="1" step="0.01" value="0.1">
         </div>
         <!-- 有机弹簧参数 -->
-        <div class="control-item" id="vmodel-organic-k" style="display:none;">
-          <label>弹性系数 k <span class="value-display" id="val-organic-k">10</span></label>
-          <input type="range" id="organic-k" min="1" max="100" step="1" value="10">
+        <div class="control-item" id="vmodel-organic-response" style="display:none;">
+          <label>响应时间 <span class="value-display" id="val-organic-response">1.5</span></label>
+          <input type="range" id="organic-response" min="0.1" max="5" step="0.1" value="1.5">
         </div>
-        <div class="control-item" id="vmodel-organic-m" style="display:none;">
-          <label>质量 m <span class="value-display" id="val-organic-m">1</span></label>
-          <input type="range" id="organic-m" min="0.01" max="10" step="0.01" value="1">
-        </div>
-        <div class="control-item" id="vmodel-organic-beta" style="display:none;">
-          <label>粘性系数 β <span class="value-display" id="val-organic-beta">5</span></label>
-          <input type="range" id="organic-beta" min="0" max="50" step="0.5" value="5">
+        <div class="control-item" id="vmodel-organic-damping" style="display:none;">
+          <label>阻尼比 <span class="value-display" id="val-organic-damping">0.7</span></label>
+          <input type="range" id="organic-damping" min="0" max="2" step="0.05" value="0.7">
         </div>
       </div>
 

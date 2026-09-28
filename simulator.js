@@ -223,9 +223,6 @@ function getParams() {
     
     enableDrag: document.getElementById('enable-drag').checked,
     dragCoeff: parseFloat(document.getElementById('drag-coeff').value),
-    organicK: parseFloat(document.getElementById('organic-k').value),
-    organicM: parseFloat(document.getElementById('organic-m').value),
-    organicBeta: parseFloat(document.getElementById('organic-beta').value),
   };
 }
 

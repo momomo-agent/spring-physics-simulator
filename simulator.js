@@ -280,6 +280,7 @@ function simulatePhysics(params) {
   let v_smooth_vel = 0; // 速度弹簧的速度
   let a_smooth_vel = 0; // 加速度弹簧的速度
   let pid_integral = 0, pid_prev_error = 0, v_viscous = v;
+  let organic_v = v; // 有机弹簧的速度状态
   
   for (let i = 0; i < FRAMES; i++) {
     const t = i * DT;
@@ -368,9 +369,23 @@ function simulatePhysics(params) {
       v_actual = params.pidKp * e + params.pidKi * pid_integral + params.pidKd * de;
       pid_prev_error = e;
     } else if (params.velocityModel === 'viscous') {
-      const target_v = F_total / params.viscousCoef;
+      // 低雷诺数流体：粘性力主导，阻力正比于速度
+      // F = F_spring - b*v （线性阻尼，不是二次阻尼）
+      // 在粘性主导下：ma ≈ 0, 所以 F_spring = b*v
+      // v = F_spring / b
+      const F_spring_only = params.enableSpring ? (-k_spring * x - c_spring * v) : 0;
+      const target_v = F_spring_only / params.viscousCoef;
       v_viscous += (target_v - v_viscous) * (1 - Math.exp(-DT / params.viscousTau));
       v_actual = v_viscous;
+    } else if (params.velocityModel === 'organic') {
+      // 有机弹簧：弹性 + 惯性 + 粘性的混合
+      // 类似生物组织，有弹性但也有内部阻尼和惯性
+      // 使用二阶系统，但允许欠阻尼和过阻尼之间平滑过渡
+      const k_org = 4 * Math.PI * Math.PI / (params.organicResponse * params.organicResponse);
+      const c_org = 2 * params.organicDamping * Math.sqrt(k_org * m);
+      const a_organic = (F_total - c_org * organic_v) / m;
+      organic_v += a_organic * DT;
+      v_actual = organic_v;
     }
     
     frames.push({ t, x, v: v_actual, a: a_actual });
@@ -383,6 +398,8 @@ function simulatePhysics(params) {
       v += a_actual * DT;
       x += v * DT;
     } else if (params.velocityModel === "robot" || params.velocityModel === "viscous") {
+      x += v_actual * DT;
+    } else if (params.velocityModel === "organic") {
       x += v_actual * DT;
     } else {
       v += a_target * DT;

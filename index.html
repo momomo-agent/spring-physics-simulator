@@ -387,6 +387,7 @@
             <option value="direct-spring">直接弹簧 (v=spring曲线)</option>
             <option value="robot">机器人 (PID控制器)</option>
             <option value="viscous">低雷诺数流体 (粘性主导)</option>
+            <option value="organic">有机弹簧 (弹性+惯性+粘性)</option>
           </select>
         </div>
         <!-- 速度弹簧/加速度弹簧/直接弹簧 参数 -->
@@ -419,6 +420,19 @@
         <div class="control-item" id="vmodel-viscous-tau" style="display:none;">
           <label>时间常数 τ <span class="value-display" id="val-viscous-tau">0.1</span></label>
           <input type="range" id="viscous-tau" min="0.01" max="1" step="0.01" value="0.1">
+        </div>
+        <!-- 有机弹簧参数 -->
+        <div class="control-item" id="vmodel-organic-k" style="display:none;">
+          <label>弹性系数 k <span class="value-display" id="val-organic-k">10</span></label>
+          <input type="range" id="organic-k" min="1" max="100" step="1" value="10">
+        </div>
+        <div class="control-item" id="vmodel-organic-m" style="display:none;">
+          <label>质量 m <span class="value-display" id="val-organic-m">1</span></label>
+          <input type="range" id="organic-m" min="0.01" max="10" step="0.01" value="1">
+        </div>
+        <div class="control-item" id="vmodel-organic-beta" style="display:none;">
+          <label>粘性系数 β <span class="value-display" id="val-organic-beta">5</span></label>
+          <input type="range" id="organic-beta" min="0" max="50" step="0.5" value="5">
         </div>
       </div>
 

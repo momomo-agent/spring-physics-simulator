@@ -248,6 +248,7 @@ function simulatePhysics(params) {
   let a_smooth = 0; // 平滑加速度（用于加速度弹簧模型）
   let v_smooth_vel = 0; // 速度弹簧的速度
   let a_smooth_vel = 0; // 加速度弹簧的速度
+  let pid_integral = 0, pid_prev_error = 0, v_viscous = v;
   
   for (let i = 0; i < FRAMES; i++) {
     const t = i * DT;
@@ -330,6 +331,16 @@ function simulatePhysics(params) {
       const progress = springCurve(t, params.vspringResponse, params.vspringDamping);
       v_actual = params.v0 + (v - params.v0) * progress;
     }
+      
+    } else if (params.velocityModel === 'pid') {
+      const e = params.x0 - x;
+      pid_integral += e * DT;
+      v_actual = 2*e + 0.5*pid_integral + 1*(e-pid_prev_error)/DT;
+      pid_prev_error = e;
+    } else if (params.velocityModel === 'viscous') {
+      v_viscous += (F_total/20 - v_viscous) * (1-Math.exp(-DT/0.1));
+      v_actual = v_viscous;
+    }
     
     frames.push({ t, x, v: v_actual, a: a_actual });
     
@@ -340,10 +351,11 @@ function simulatePhysics(params) {
     } else if (params.velocityModel === 'accel-spring') {
       v += a_actual * DT;
       x += v * DT;
+    } else if (params.velocityModel === "pid" || params.velocityModel === "viscous") {
+      x += v_actual * DT;
     } else {
-      // velocity-spring 和 direct-spring
-      v += a_target * DT; // 真实物理速度
-      x += v_actual * DT; // 用平滑后的速度更新位置
+      v += a_target * DT;
+      x += v_actual * DT;
     }
   }
   

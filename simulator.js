@@ -349,8 +349,6 @@ function simulatePhysics(params) {
       // 这种方式下，速度从 v0 平滑过渡到由力驱动的速度
       const progress = springCurve(t, params.vspringResponse, params.vspringDamping);
       v_actual = params.v0 + (v - params.v0) * progress;
-    }
-      
     } else if (params.velocityModel === 'pid') {
       const e = params.x0 - x;
       pid_integral += e * DT;

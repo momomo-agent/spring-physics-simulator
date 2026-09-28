@@ -362,7 +362,7 @@ function simulatePhysics(params) {
       const progress = springCurve(t, params.vspringResponse, params.vspringDamping);
       v_actual = params.v0 + (v - params.v0) * progress;
     } else if (params.velocityModel === 'robot') {
-      const e = params.x0 - x;
+      const e = 0 - x;  // 误差 = 目标位置(0) - 当前位置
       pid_integral += e * DT;
       const de = (e - pid_prev_error) / DT;
       v_actual = params.pidKp * e + params.pidKi * pid_integral + params.pidKd * de;

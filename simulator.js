@@ -145,6 +145,8 @@ function initializeControls() {
     document.getElementById('vmodel-pid-kd').style.display = 'none';
     document.getElementById('vmodel-viscous-coef').style.display = 'none';
     document.getElementById('vmodel-viscous-tau').style.display = 'none';
+    document.getElementById('vmodel-organic-response').style.display = 'none';
+    document.getElementById('vmodel-organic-damping').style.display = 'none';
     
     // 根据模型显示对应参数
     if (model === 'velocity-spring' || model === 'accel-spring' || model === 'direct-spring') {
@@ -157,6 +159,9 @@ function initializeControls() {
     } else if (model === 'viscous') {
       document.getElementById('vmodel-viscous-coef').style.display = 'block';
       document.getElementById('vmodel-viscous-tau').style.display = 'block';
+    } else if (model === 'organic') {
+      document.getElementById('vmodel-organic-response').style.display = 'block';
+      document.getElementById('vmodel-organic-damping').style.display = 'block';
     }
     
     simulate();
@@ -209,6 +214,10 @@ function getParams() {
     // 粘性流体参数
     viscousCoef: parseFloat(document.getElementById('viscous-coef').value),
     viscousTau: parseFloat(document.getElementById('viscous-tau').value),
+    
+    // Organic 参数
+    organicResponse: parseFloat(document.getElementById('organic-response').value),
+    organicDamping: parseFloat(document.getElementById('organic-damping').value),
     
     enableSpring: document.getElementById('enable-spring').checked,
     springResponse: parseFloat(document.getElementById('response').value),
@@ -363,24 +372,31 @@ function simulatePhysics(params) {
       const progress = springCurve(t, params.vspringResponse, params.vspringDamping);
       v_actual = params.v0 + (v - params.v0) * progress;
     } else if (params.velocityModel === 'robot') {
+      // PID 控制器：让速度曲线像 spring curve
+      // 使用 PD 控制（去掉 I 项避免积分饱和导致震荡）
       const e = 0 - x;  // 误差 = 目标位置(0) - 当前位置
-      pid_integral += e * DT;
-      // 限制积分项防止积分饱和
-      const maxIntegral = 100;
-      pid_integral = Math.max(-maxIntegral, Math.min(maxIntegral, pid_integral));
       const de = (e - pid_prev_error) / DT;
-      const v_pid = params.pidKp * e + params.pidKi * pid_integral + params.pidKd * de;
-      // 限制速度防止发散
-      const maxVel = 500;
+      
+      // PD 控制：v = Kp*e + Kd*de/dt
+      // 调整参数让曲线像 critical damping
+      const v_pid = params.pidKp * e + params.pidKd * de;
+      
+      // 限制速度防止过冲
+      const maxVel = 300;
       v_actual = Math.max(-maxVel, Math.min(maxVel, v_pid));
       pid_prev_error = e;
     } else if (params.velocityModel === 'viscous') {
-      // 低雷诺数流体：粘性力主导，阻力正比于速度
-      // F = -k*x - b*v （线性阻尼）
-      // 在粘性主导下：ma ≈ 0, 所以 -k*x = b*v
-      // v = -k*x / b （注意：忽略 c_spring，因为粘性阻尼已经由流体提供）
-      const target_v = params.enableSpring ? (-k_spring * x / params.viscousCoef) : 0;
-      v_viscous += (target_v - v_viscous) * (1 - Math.exp(-DT / params.viscousTau));
+      // 低雷诺数流体：粘性力主导，惯性可忽略 (ma ≈ 0)
+      // F_spring = -k*x, F_drag = -b*v
+      // 在低雷诺数下：F_spring + F_drag ≈ 0
+      // 所以：v = -k*x / b (速度瞬间跟随力)
+      // 为了像 spring curve，我们让 v 按指数衰减逼近平衡
+      const b = params.viscousCoef;
+      const tau_viscous = b / k_spring; // 特征时间尺度
+      // 使用一阶 ODE: dv/dt = (-k*x - b*v) / tau
+      // 这样速度会像 spring curve 一样平滑衰减
+      const dv = (-k_spring * x - b * v_viscous) / (b * params.viscousTau);
+      v_viscous += dv * DT;
       v_actual = v_viscous;
       v = v_viscous; // 更新主速度状态
     } else if (params.velocityModel === 'organic') {

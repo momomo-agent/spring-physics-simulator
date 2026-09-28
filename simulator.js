@@ -372,40 +372,29 @@ function simulatePhysics(params) {
       const progress = springCurve(t, params.vspringResponse, params.vspringDamping);
       v_actual = params.v0 + (v - params.v0) * progress;
     } else if (params.velocityModel === 'robot') {
-      // PID 控制器：让速度曲线像 spring curve
-      // 使用 PD 控制（去掉 I 项避免积分饱和导致震荡）
-      const e = 0 - x;  // 误差 = 目标位置(0) - 当前位置
-      const de = (e - pid_prev_error) / DT;
-      
-      // PD 控制：v = Kp*e + Kd*de/dt
-      // 调整参数让曲线像 critical damping
-      const v_pid = params.pidKp * e + params.pidKd * de;
-      
-      // 限制速度防止过冲
-      const maxVel = 300;
-      v_actual = Math.max(-maxVel, Math.min(maxVel, v_pid));
-      pid_prev_error = e;
+      // 机器人 PD 控制：速度按 spring curve 从初速度平滑归零
+      // 模拟伺服电机的 motion profile
+      const response = params.pidKp * 0.01; // Kp 控制响应时间
+      const damping = params.pidKd * 0.1;   // Kd 控制阻尼
+      const progress = springCurve(t, response, damping);
+      v_actual = params.v0 * (1 - progress);
+      pid_prev_error = 0 - x;
     } else if (params.velocityModel === 'viscous') {
-      // 低雷诺数流体：粘性力主导，惯性可忽略 (ma ≈ 0)
-      // F_spring = -k*x, F_drag = -b*v
-      // 在低雷诺数下：F_spring + F_drag ≈ 0
-      // 所以：v = -k*x / b (速度瞬间跟随力)
-      // 为了像 spring curve，我们让 v 按指数衰减逼近平衡
+      // 低雷诺数流体：速度按 spring curve 从初速度过渡到目标速度
+      // 目标速度 = -k*x / b（力平衡条件）
       const b = params.viscousCoef;
-      const tau_viscous = b / k_spring; // 特征时间尺度
-      // 使用一阶 ODE: dv/dt = (-k*x - b*v) / tau
-      // 这样速度会像 spring curve 一样平滑衰减
-      const dv = (-k_spring * x - b * v_viscous) / (b * params.viscousTau);
-      v_viscous += dv * DT;
-      v_actual = v_viscous;
-      v = v_viscous; // 更新主速度状态
+      const v_target = -k_spring * x / b;
+      // 用 spring curve 插值（critical damping）
+      const progress = springCurve(t, params.viscousTau, 1.0);
+      v_actual = params.v0 + (v_target - params.v0) * progress;
+      v_viscous = v_actual;
     } else if (params.velocityModel === 'organic') {
-      // 有机弹簧：弹性 + 惯性 + 粘性的混合
+      // 有机弹簧：完全独立的弹簧系统，不受外力影响
       // 类似生物组织，有弹性但也有内部阻尼和惯性
-      // 使用二阶系统，但允许欠阻尼和过阻尼之间平滑过渡
       const k_org = 4 * Math.PI * Math.PI / (params.organicResponse * params.organicResponse);
       const c_org = 2 * params.organicDamping * Math.sqrt(k_org * m);
-      const a_organic = (F_total - c_org * organic_v) / m;
+      const F_org = -k_org * x - c_org * organic_v;
+      const a_organic = F_org / m;
       organic_v += a_organic * DT;
       v_actual = organic_v;
     }

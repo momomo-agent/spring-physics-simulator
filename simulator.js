@@ -135,9 +135,24 @@ function initializeControls() {
   
   // 速度模型切换
   document.getElementById('velocity-model').addEventListener('change', (e) => {
-    const showSpring = e.target.value !== 'traditional';
-    document.getElementById('spring-params').style.display = showSpring ? 'block' : 'none';
-    document.getElementById('spring-damping').style.display = showSpring ? 'block' : 'none';
+    const model = e.target.value;
+    
+    // 速度弹簧参数（非传统物理且非有机弹簧时显示）
+    const showVSpring = model !== 'traditional' && model !== 'pid' && model !== 'viscous' && model !== 'organic';
+    const vspringResp = document.getElementById('vspring-response-item');
+    const vspringDamp = document.getElementById('vspring-damping-item');
+    if (vspringResp) vspringResp.style.display = showVSpring ? 'block' : 'none';
+    if (vspringDamp) vspringDamp.style.display = showVSpring ? 'block' : 'none';
+    
+    // 有机弹簧参数（只在 organic 模式显示）
+    const showOrganic = model === 'organic';
+    const organicK = document.getElementById('organic-k-item');
+    const organicM = document.getElementById('organic-m-item');
+    const organicBeta = document.getElementById('organic-beta-item');
+    if (organicK) organicK.style.display = showOrganic ? 'block' : 'none';
+    if (organicM) organicM.style.display = showOrganic ? 'block' : 'none';
+    if (organicBeta) organicBeta.style.display = showOrganic ? 'block' : 'none';
+    
     simulate();
   });
 
@@ -207,7 +222,10 @@ function getParams() {
     muKinetic: parseFloat(document.getElementById('mu-kinetic').value),
     
     enableDrag: document.getElementById('enable-drag').checked,
-    dragCoeff: parseFloat(document.getElementById('drag-coeff').value)
+    dragCoeff: parseFloat(document.getElementById('drag-coeff').value),
+    organicK: parseFloat(document.getElementById('organic-k').value),
+    organicM: parseFloat(document.getElementById('organic-m').value),
+    organicBeta: parseFloat(document.getElementById('organic-beta').value),
   };
 }
 
@@ -249,6 +267,7 @@ function simulatePhysics(params) {
   let v_smooth_vel = 0; // 速度弹簧的速度
   let a_smooth_vel = 0; // 加速度弹簧的速度
   let pid_integral = 0, pid_prev_error = 0, v_viscous = v;
+  let organic_v = v;
   
   for (let i = 0; i < FRAMES; i++) {
     const t = i * DT;
@@ -340,6 +359,14 @@ function simulatePhysics(params) {
     } else if (params.velocityModel === 'viscous') {
       v_viscous += (F_total/20 - v_viscous) * (1-Math.exp(-DT/0.1));
       v_actual = v_viscous;
+    } else if (params.velocityModel === 'organic') {
+      // 有机弹簧: m·a = -k·x - β·v
+      const k = params.organicK;
+      const m_organic = params.organicM;
+      const beta = params.organicBeta;
+      const a_organic = (-k * x - beta * organic_v) / m_organic;
+      organic_v += a_organic * DT;
+      v_actual = organic_v;
     }
     
     frames.push({ t, x, v: v_actual, a: a_actual });
@@ -351,7 +378,7 @@ function simulatePhysics(params) {
     } else if (params.velocityModel === 'accel-spring') {
       v += a_actual * DT;
       x += v * DT;
-    } else if (params.velocityModel === "pid" || params.velocityModel === "viscous") {
+    } else if (params.velocityModel === "pid" || params.velocityModel === "viscous" || params.velocityModel === "organic") {
       x += v_actual * DT;
     } else {
       v += a_target * DT;

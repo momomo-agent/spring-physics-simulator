@@ -383,9 +383,10 @@
             <option value="velocity-spring">速度弹簧 (v追v_target)</option>
             <option value="accel-spring">加速度弹簧 (a追a_target)</option>
             <option value="direct-spring">直接弹簧 (v=spring曲线)</option>
-            <option value="pid">机器人 (PID控制器)</option>
+            <option value="robot">机器人 (PID控制器)</option>
             <option value="viscous">低雷诺数流体 (粘性主导)</option>
-            <option value="organic">有机弹簧 (弹性+惯性+粘性)</option>
+          </select>
+        </div>
         <div class="control-item" id="spring-params" style="display:none;">
           <label>弹簧响应 <span class="value-display" id="val-vspring-response">0.5</span></label>
           <input type="range" id="vspring-response" min="0.1" max="2" step="0.05" value="0.5">

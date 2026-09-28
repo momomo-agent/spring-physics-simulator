@@ -9,6 +9,7 @@ const DT = 1 / FPS;
 let simulationData = null;
 let animationFrame = 0;
 let isAnimating = false;
+let isPlaying = false;
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
@@ -263,7 +264,29 @@ function simulate() {
   drawChart('chart-velocity', 'v');
   drawChart('chart-acceleration', 'a');
   
-  startAnimation();
+  // 不自动播放，等用户点击
+  isAnimating = false;
+  animationFrame = 0;
+  const ball = document.getElementById('ball');
+  ball.style.left = '0px';
+}
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  const icon = document.getElementById('play-icon');
+  const text = document.getElementById('play-text');
+  
+  if (isPlaying) {
+    icon.textContent = '⏸️';
+    text.textContent = '暂停';
+    if (!isAnimating) {
+      startAnimation();
+    }
+  } else {
+    icon.textContent = '▶️';
+    text.textContent = '播放';
+    isAnimating = false;
+  }
 }
 
 function drawChart(canvasId, valueKey) {
@@ -356,8 +379,19 @@ function startAnimation() {
 }
 
 function animate() {
-  if (!isAnimating || animationFrame >= simulationData.length) {
-    isAnimating = false;
+  if (!isAnimating || !isPlaying || animationFrame >= simulationData.length) {
+    if (animationFrame >= simulationData.length) {
+      // 播放完毕，重置到开始
+      isPlaying = false;
+      isAnimating = false;
+      animationFrame = 0;
+      const icon = document.getElementById('play-icon');
+      const text = document.getElementById('play-text');
+      icon.textContent = '▶️';
+      text.textContent = '播放';
+      const ball = document.getElementById('ball');
+      ball.style.left = '0px';
+    }
     return;
   }
   

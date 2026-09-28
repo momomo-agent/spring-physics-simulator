@@ -289,6 +289,23 @@ function togglePlay() {
   }
 }
 
+function resetAnimation() {
+  isPlaying = false;
+  isAnimating = false;
+  animationFrame = 0;
+  const icon = document.getElementById('play-icon');
+  const text = document.getElementById('play-text');
+  icon.textContent = '▶️';
+  text.textContent = '播放';
+  const ball = document.getElementById('ball');
+  ball.style.left = '0px';
+  
+  // 重绘曲线，清除进度线
+  drawChart('chart-position', 'x');
+  drawChart('chart-velocity', 'v');
+  drawChart('chart-acceleration', 'a');
+}
+
 function drawChart(canvasId, valueKey) {
   const canvas = document.getElementById(canvasId);
   const ctx = canvas.getContext('2d');
@@ -360,6 +377,26 @@ function drawChart(canvasId, valueKey) {
   }
   ctx.fillText(vMin.toFixed(0), padding - 10, height - padding + 5);
   
+  // 绘制当前播放进度线
+  if (animationFrame > 0 && animationFrame < simulationData.length) {
+    const currentTime = (animationFrame / FRAMES) * DURATION;
+    const progressX = padding + (currentTime / DURATION) * graphWidth;
+    
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(progressX, padding);
+    ctx.lineTo(progressX, height - padding);
+    ctx.stroke();
+    
+    // 当前时间标记
+    ctx.fillStyle = '#ef4444';
+    ctx.font = 'bold 11px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(currentTime.toFixed(2) + 's', progressX, padding - 8);
+  }
+  
   const labels = { x: '位置 x(t)', v: '速度 v(t)', a: '加速度 a(t)' };
   ctx.save();
   ctx.translate(15, height / 2);
@@ -403,6 +440,11 @@ function animate() {
   
   const pixelX = ((frame.x + 200) / 400) * (containerWidth - ballWidth);
   ball.style.left = Math.max(0, Math.min(containerWidth - ballWidth, pixelX)) + 'px';
+  
+  // 每一帧重绘曲线以显示当前进度
+  drawChart('chart-position', 'x');
+  drawChart('chart-velocity', 'v');
+  drawChart('chart-acceleration', 'a');
   
   animationFrame++;
   setTimeout(() => requestAnimationFrame(animate), 1000 / FPS);
